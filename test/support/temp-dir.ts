@@ -1,0 +1,15 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+
+export function mkTmpDir(prefix: string): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+export function rmTmpDir(dir: string): void {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    // best effort
+  }
+}

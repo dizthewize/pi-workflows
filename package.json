@@ -1,0 +1,39 @@
+{
+  "name": "pi-workflows",
+  "version": "0.1.0",
+  "description": "Dependency-aware multi-agent workflow execution for Pi",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --import jiti/register 'src/**/*.test.ts'",
+    "test:unit": "node --test --import jiti/register 'src/**/*.test.ts'",
+    "test:integration": "node --test --import jiti/register 'test/integration/**/*.test.ts'",
+    "test:all": "node --test --import jiti/register 'src/**/*.test.ts' 'test/**/*.test.ts'",
+    "test:ci": "CI=true node --test --import jiti/register 'src/**/*.test.ts' 'test/**/*.test.ts'",
+    "test:watch": "node --test --watch --import jiti/register 'src/**/*.test.ts'",
+    "test:real-pi": "SKIP_REAL_PI=0 node --test --import jiti/register test/integration/real-subprocess.test.ts"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "workflows",
+    "multi-agent",
+    "orchestration"
+  ],
+  "files": [
+    "src/**/*.ts",
+    "*.json",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.74.0"
+  },
+  "optionalDependencies": {
+    "pi-subagents": ">=0.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "jiti": "^2.7.0"
+  },
+  "license": "MIT",
+  "author": ""
+}
