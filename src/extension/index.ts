@@ -320,7 +320,7 @@ Usage:
   });
 }
 
-const PLANNER_PROMPT = \`You are a task planner for parallel agent execution. Convert a PRD into a structured TASK-XX markdown spec.
+const PLANNER_PROMPT = `You are a task planner for parallel agent execution. Convert a PRD into a structured TASK-XX markdown spec.
 
 ## Rules
 
@@ -345,4 +345,4 @@ Acceptance: What must be true for this task to be complete
 
 ## Output
 
-Return ONLY the markdown spec. No intro text, no markdown fences. Just raw TASK-XX starting with # Title.\`;
+Return ONLY the markdown spec. No intro text, no markdown fences. Just raw TASK-XX starting with # Title.`;

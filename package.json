@@ -3,7 +3,17 @@
   "version": "0.1.0",
   "description": "Dependency-aware multi-agent workflow execution for Pi",
   "type": "module",
+  "main": "./dist/extension/index.js",
+  "types": "./dist/extension/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/extension/index.d.ts",
+      "default": "./dist/extension/index.js"
+    }
+  },
   "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
     "test": "node --test --import jiti/register 'src/**/*.test.ts'",
     "test:unit": "node --test --import jiti/register 'src/**/*.test.ts'",
     "test:integration": "node --test --import jiti/register 'test/integration/**/*.test.ts'",
@@ -20,7 +30,7 @@
     "orchestration"
   ],
   "files": [
-    "src/**/*.ts",
+    "dist/**/*",
     "*.json",
     "README.md"
   ],
@@ -32,7 +42,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "jiti": "^2.7.0"
+    "jiti": "^2.7.0",
+    "typebox": "^1.1.38",
+    "typescript": "^5.9.3"
   },
   "license": "MIT",
   "author": ""
