@@ -85,7 +85,7 @@ export class WorkflowWidget implements Component {
 
     if (!snap) {
       lines.push(this.border("top", innerWidth, "Workflow"));
-      const msg = this.lastError ? `Error: ${this.lastError}` : "Loading...";
+      const msg = this.lastError ? this.lastError.includes("ENOENT") ? "Starting..." : `Error: ${this.lastError}` : "Starting...";
       lines.push(this.boxLine(th.fg("dim", msg), innerWidth));
       lines.push(this.border("bottom", innerWidth));
       this.cache(lines, width);

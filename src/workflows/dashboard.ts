@@ -110,9 +110,9 @@ export class WorkflowDashboard implements Component {
     const snap = this.readSnapshot();
     if (!snap) {
       lines.push(this.border("top", innerWidth, "Workflow Dashboard"));
-      lines.push(this.boxLine(th.fg("dim", "Loading snapshot..."), innerWidth));
+      lines.push(this.boxLine(th.fg("dim", "No active workflow snapshot."), innerWidth));
       lines.push(this.border("bottom", innerWidth));
-      lines.push(this.boxLine(th.fg("dim", "Press q to quit"), innerWidth));
+      lines.push(this.boxLine(th.fg("dim", "q quit"), innerWidth));
       this.cache(lines, width);
       return lines;
     }

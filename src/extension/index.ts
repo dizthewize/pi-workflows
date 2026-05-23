@@ -223,6 +223,7 @@ Usage:
           options: params.options,
           runtime: { cwd: ctx.cwd },
           defaultModel: resolveSubagentModel((ctx as any).model),
+          snapshotId,
           onUpdate: (update) => {
             if (onUpdate) {
               onUpdate({

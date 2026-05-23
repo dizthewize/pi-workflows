@@ -100,10 +100,11 @@ export interface ExecutorOptions {
   signal?: AbortSignal;
   spawnFn?: SpawnFunction;
   defaultModel?: string;
+  snapshotId?: string; // deterministic ID for widget tracking
 }
 
 export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowResult> {
-  const { name, tasks: rawTasks, plan, options = {}, runtime, onUpdate, signal, spawnFn, defaultModel } = opts;
+  const { name, tasks: rawTasks, plan, options = {}, runtime, onUpdate, signal, spawnFn, defaultModel, snapshotId: providedSnapshotId } = opts;
   const startTime = Date.now();
 
   // Point A: resolve tasks from plan markdown if provided
@@ -187,7 +188,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
   const meshAgentId = meshJoinIfRequested(options, name);
 
   // Inline status snapshot
-  const workflowId = `${name}-${Date.now()}`;
+  const workflowId = providedSnapshotId ?? `${name}-${Date.now()}`;
   let snapshot: WorkflowSnapshot = {
     id: workflowId,
     name,
