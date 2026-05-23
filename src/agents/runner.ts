@@ -1,9 +1,63 @@
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { AgentConfig, SingleResult, OnUpdateCallback, OutputLimits } from "../types.js";
+
+/**
+ * Read environment variables from the user's login shell.
+ * Pi may have been started before env vars were set; this ensures
+ * subprocesses get the same environment as a fresh terminal.
+ */
+function getShellEnv(): Record<string, string> {
+  try {
+    const shell = process.env.SHELL || "/bin/sh";
+    const output = execSync(`${shell} -lc 'env'`, { encoding: "utf-8", timeout: 5000 });
+    const env: Record<string, string> = {};
+    for (const line of output.split("\n")) {
+      const idx = line.indexOf("=");
+      if (idx > 0) {
+        env[line.slice(0, idx)] = line.slice(idx + 1);
+      }
+    }
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+/** API key env vars that should be forwarded to subprocesses. */
+const API_KEY_VARS = [
+  "OPENCODE_API_KEY",
+  "OLLAMA_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_OAUTH_TOKEN",
+  "OPENAI_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "GEMINI_API_KEY",
+  "GROQ_API_KEY",
+  "MISTRAL_API_KEY",
+  "MOONSHOT_API_KEY",
+  "FIREWORKS_API_KEY",
+  "TOGETHER_API_KEY",
+  "XAI_API_KEY",
+  "AZURE_OPENAI_API_KEY",
+  "HF_TOKEN",
+  "CLOUDFLARE_API_KEY",
+];
+
+function buildSubprocessEnv(): NodeJS.ProcessEnv {
+  const shellEnv = getShellEnv();
+  const merged: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of API_KEY_VARS) {
+    const shellVal = shellEnv[key];
+    if (shellVal && shellVal.trim()) {
+      merged[key] = shellVal;
+    }
+  }
+  return merged;
+}
 
 export type SpawnFunction = (
   options: SpawnOptions
@@ -200,7 +254,7 @@ async function vendoredRunSingleAgent(
       cwd,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
+      env: buildSubprocessEnv(),
     });
 
     const jsonlFile = path.join(artifactPath, "transcript.jsonl");
@@ -241,6 +295,12 @@ async function vendoredRunSingleAgent(
         }
         currentResult.currentTool = undefined;
         currentResult.currentToolArgs = undefined;
+        emitUpdate();
+      }
+
+      if (evt.type === "message_start" && evt.message) {
+        const msg = evt.message as Record<string, unknown>;
+        if (!currentResult.model && msg.model) currentResult.model = msg.model as string;
         emitUpdate();
       }
 

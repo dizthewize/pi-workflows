@@ -1,10 +1,9 @@
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import { executeWorkflow } from "./executor.js";
 import { AgentConfig, SingleResult } from "../types.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { describe, it, expect } from "vitest";
 
 function mkTmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -27,8 +26,8 @@ describe("executeWorkflow", () => {
         options: { maxCost: 10, reserveFiles: false },
         runtime: { cwd: tmp },
       });
-      assert.strictEqual(result.status, "failed");
-      assert.ok(result.tasks.some((t) => t.status === "pending"));
+      expect(result.status).toBe("failed");
+      expect(result.tasks.some((t) => t.status === "pending")).toBe(true);
     } finally {
       rmTmpDir(tmp);
     }
@@ -59,12 +58,12 @@ describe("executeWorkflow", () => {
         spawnFn,
       });
 
-      assert.strictEqual(result.status, "complete");
-      assert.strictEqual(result.workflow.taskCount, 2);
-      assert.strictEqual(result.waves.length, 1);
-      assert.strictEqual(result.tasks[0].status, "complete");
-      assert.strictEqual(result.tasks[1].status, "complete");
-      assert.strictEqual(result.cost.total, 0.20); // 2 × 0.10
+      expect(result.status).toBe("complete");
+      expect(result.workflow.taskCount).toBe(2);
+      expect(result.waves.length).toBe(1);
+      expect(result.tasks[0].status).toBe("complete");
+      expect(result.tasks[1].status).toBe("complete");
+      expect(result.cost.total).toBe(0.20); // 2 × 0.10
     } finally {
       rmTmpDir(tmp);
     }
@@ -101,8 +100,8 @@ describe("executeWorkflow", () => {
       });
 
       // After wave 0 (t1), cost=3. After wave 1 (t2), cost=6 > 5, so wave 2 (t3) should stop.
-      assert.strictEqual(result.status, "cost_exceeded");
-      assert.ok(result.tasks.filter((t) => t.status === "complete").length < 3);
+      expect(result.status).toBe("cost_exceeded");
+      expect(result.tasks.filter((t) => t.status === "complete").length < 3).toBe(true);
     } finally {
       rmTmpDir(tmp);
     }
@@ -152,8 +151,8 @@ describe("executeWorkflow", () => {
         spawnFn,
       });
 
-      assert.strictEqual(result.status, "aborted");
-      assert.ok(result.tasks.filter((t) => t.status === "complete").length < 3);
+      expect(result.status).toBe("aborted");
+      expect(result.tasks.filter((t) => t.status === "complete").length < 3).toBe(true);
     } finally {
       rmTmpDir(tmp);
     }

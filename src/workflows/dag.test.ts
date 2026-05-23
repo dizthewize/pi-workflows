@@ -1,7 +1,6 @@
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import { parseDAG, validateDAG, topoSortWaves } from "./dag.js";
 import { Task } from "../types.js";
+import { describe, it, expect } from "vitest";
 
 describe("parseDAG", () => {
   it("parses tasks with empty dependsOn", () => {
@@ -10,9 +9,9 @@ describe("parseDAG", () => {
       { id: "t2", prompt: "b" },
     ];
     const dag = parseDAG(tasks);
-    assert.strictEqual(dag.tasks.size, 2);
-    assert.ok(dag.roots.has("t1"));
-    assert.ok(dag.roots.has("t2"));
+    expect(dag.tasks.size).toBe(2);
+    expect(dag.roots.has("t1")).toBe(true);
+    expect(dag.roots.has("t2")).toBe(true);
   });
 
   it("parses tasks with dependencies", () => {
@@ -21,11 +20,8 @@ describe("parseDAG", () => {
       { id: "t2", prompt: "b", dependsOn: ["t1"] },
     ];
     const dag = parseDAG(tasks);
-    assert.deepStrictEqual(
-      dag.edges.get("t2"),
-      new Set(["t1"])
-    );
-    assert.ok(!dag.roots.has("t2"));
+    expect(dag.edges.get("t2")).toStrictEqual(new Set(["t1"]));
+    expect(!dag.roots.has("t2")).toBe(true);
   });
 });
 
@@ -35,14 +31,14 @@ describe("validateDAG", () => {
       { id: "a", prompt: "1" },
       { id: "b", prompt: "2", dependsOn: ["a"] },
     ]);
-    assert.strictEqual(validateDAG(dag).valid, true);
+    expect(validateDAG(dag).valid).toBe(true);
   });
 
   it("fails on self-referencing task", () => {
     const dag = parseDAG([{ id: "a", prompt: "1", dependsOn: ["a"] }]);
     const v = validateDAG(dag);
-    assert.strictEqual(v.valid, false);
-    assert.match(v.error ?? "", /depends on itself/);
+    expect(v.valid).toBe(false);
+    expect(v.error ?? "").toMatch(/depends on itself/);
   });
 
   it("fails on missing dependency", () => {
@@ -50,8 +46,8 @@ describe("validateDAG", () => {
       { id: "a", prompt: "1", dependsOn: ["ghost"] },
     ]);
     const v = validateDAG(dag);
-    assert.strictEqual(v.valid, false);
-    assert.match(v.error ?? "", /ghost/);
+    expect(v.valid).toBe(false);
+    expect(v.error ?? "").toMatch(/ghost/);
   });
 
   it("detects A→B→C→A cycle", () => {
@@ -61,8 +57,8 @@ describe("validateDAG", () => {
       { id: "c", prompt: "3", dependsOn: ["b"] },
     ]);
     const v = validateDAG(dag);
-    assert.strictEqual(v.valid, false);
-    assert.match(v.error ?? "", /cycle/i);
+    expect(v.valid).toBe(false);
+    expect(v.error ?? "").toMatch(/cycle/i);
   });
 
   it("allows diamond dependency", () => {
@@ -72,7 +68,7 @@ describe("validateDAG", () => {
       { id: "c", prompt: "3", dependsOn: ["a"] },
       { id: "d", prompt: "4", dependsOn: ["b", "c"] },
     ]);
-    assert.strictEqual(validateDAG(dag).valid, true);
+    expect(validateDAG(dag).valid).toBe(true);
   });
 });
 
@@ -82,8 +78,8 @@ describe("topoSortWaves", () => {
       { id: "a", prompt: "1" },
       { id: "b", prompt: "2" },
     ]);
-    assert.strictEqual(waves.length, 1);
-    assert.strictEqual(waves[0].tasks.length, 2);
+    expect(waves.length).toBe(1);
+    expect(waves[0].tasks.length).toBe(2);
   });
 
   it("chains sequential tasks across waves", () => {
@@ -92,11 +88,8 @@ describe("topoSortWaves", () => {
       { id: "b", prompt: "2", dependsOn: ["a"] },
       { id: "c", prompt: "3", dependsOn: ["b"] },
     ]);
-    assert.strictEqual(waves.length, 3);
-    assert.deepStrictEqual(
-      waves.map((w) => w.tasks.map((t) => t.id)),
-      [["a"], ["b"], ["c"]]
-    );
+    expect(waves.length).toBe(3);
+    expect(waves.map((w) => w.tasks.map((t) => t.id))).toStrictEqual([["a"], ["b"], ["c"]]);
   });
 
   it("groups parallel-ready tasks in same wave", () => {
@@ -106,19 +99,16 @@ describe("topoSortWaves", () => {
       { id: "c", prompt: "3", dependsOn: ["a"] },
       { id: "d", prompt: "4", dependsOn: ["b", "c"] },
     ]);
-    assert.strictEqual(waves.length, 3);
-    assert.deepStrictEqual(
-      waves.map((w) => w.tasks.map((t) => t.id)),
-      [["a"], ["b", "c"], ["d"]]
-    );
+    expect(waves.length).toBe(3);
+    expect(waves.map((w) => w.tasks.map((t) => t.id))).toStrictEqual([["a"], ["b", "c"], ["d"]]);
   });
 
   it("throws on cycle", () => {
-    assert.throws(() => {
+    expect(() => {
       topoSortWaves([
         { id: "a", prompt: "1", dependsOn: ["b"] },
         { id: "b", prompt: "2", dependsOn: ["a"] },
       ]);
-    }, /cycle/i);
+    }).toThrow(/cycle/i);
   });
 });

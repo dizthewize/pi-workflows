@@ -3,24 +3,21 @@
   "version": "0.1.0",
   "description": "Dependency-aware multi-agent workflow execution for Pi",
   "type": "module",
-  "main": "./dist/extension/index.js",
-  "types": "./dist/extension/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/extension/index.d.ts",
-      "default": "./dist/extension/index.js"
-    }
+  "pi": {
+    "extensions": [
+      "./src/extension/index.ts"
+    ]
   },
+
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "node --test --import jiti/register 'src/**/*.test.ts'",
-    "test:unit": "node --test --import jiti/register 'src/**/*.test.ts'",
-    "test:integration": "node --test --import jiti/register 'test/integration/**/*.test.ts'",
-    "test:all": "node --test --import jiti/register 'src/**/*.test.ts' 'test/**/*.test.ts'",
-    "test:ci": "CI=true node --test --import jiti/register 'src/**/*.test.ts' 'test/**/*.test.ts'",
-    "test:watch": "node --test --watch --import jiti/register 'src/**/*.test.ts'",
-    "test:real-pi": "SKIP_REAL_PI=0 node --test --import jiti/register test/integration/real-subprocess.test.ts"
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run test/integration",
+    "test:all": "vitest run",
+    "test:ci": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "pi-package",
@@ -30,7 +27,7 @@
     "orchestration"
   ],
   "files": [
-    "dist/**/*",
+    "src/",
     "*.json",
     "README.md"
   ],
@@ -42,9 +39,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "jiti": "^2.7.0",
     "typebox": "^1.1.38",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.7"
   },
   "license": "MIT",
   "author": ""

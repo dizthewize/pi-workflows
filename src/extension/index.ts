@@ -14,6 +14,30 @@ import { executeWorkflow } from "../workflows/executor.js";
 import { renderWorkflowSummary } from "../utils.js";
 import type { ExecuteWorkflowParams } from "../types.js";
 
+function resolveSubagentModel(currentModel?: { id: string; provider?: string } | string): string | undefined {
+  const modelId = typeof currentModel === "string" ? currentModel : currentModel?.id;
+  if (!modelId || modelId === "default") return undefined;
+
+  // Already fully qualified (provider/model) — use as-is
+  if (modelId.includes("/")) return modelId;
+
+  // ollama-cloud is an extension provider; subprocesses won't load it.
+  // Map to the equivalent opencode-go proxy which uses the same backend.
+  if (modelId.startsWith("ollama-cloud/")) {
+    const name = modelId.replace("ollama-cloud/", "");
+    return `opencode-go/${name}`;
+  }
+
+  // Model ID is bare (e.g. "kimi-k2.6"). Pi stores provider separately.
+  // Prepend provider so subprocesses resolve unambiguously.
+  const provider = typeof currentModel === "string" ? undefined : currentModel?.provider;
+  if (provider) {
+    return `${provider}/${modelId}`;
+  }
+
+  return modelId;
+}
+
 const ROLES_FILE = path.join(os.homedir(), ".pi", "agent", "roles.json");
 
 function loadRoles(): Record<string, unknown>[] {
@@ -28,6 +52,7 @@ const TaskSchema = Type.Object({
   id: Type.String(),
   prompt: Type.String(),
   agent: Type.Optional(Type.String({ default: "worker" })),
+  roleId: Type.Optional(Type.String({ description: "Delegate to a pi-agent-roles role (e.g. 'planner')" })),
   files: Type.Optional(Type.Array(Type.String(), { default: [] })),
   dependsOn: Type.Optional(Type.Array(Type.String(), { default: [] })),
   gate: Type.Optional(Type.Boolean({ description: "Override review gate (true to enforce, false to skip)" })),
@@ -125,6 +150,7 @@ export default function piWorkflowsExtension(pi: ExtensionAPI) {
                 task: spawnOpts.task,
                 mode: "blocking",
                 files: spawnOpts.files ?? [],
+                model: spawnOpts.agent?.model,
               },
               responseChannel: `roles:dispatch:response:${rid}`,
             });
@@ -139,6 +165,7 @@ export default function piWorkflowsExtension(pi: ExtensionAPI) {
         plan: params.plan,
         options: params.options,
         runtime: { cwd: params.cwd ?? process.cwd() },
+        defaultModel: resolveSubagentModel(params.model),
         spawnFn,
       });
       pi.events.emit(responseChannel, { success: true, result });
@@ -171,10 +198,11 @@ Usage:
         tasks: params.tasks,
         options: params.options,
         runtime: { cwd: ctx.cwd },
+        defaultModel: resolveSubagentModel((ctx as any).model),
         onUpdate: (update) => {
           if (onUpdate) {
             onUpdate({
-              content: update.content,
+              content: update.content as Array<{ type: "text"; text: string }>,
               details: update.details?.results.reduce(
                 (acc, r) => {
                   acc[r.agent] = {
@@ -197,23 +225,6 @@ Usage:
         content: [{ type: "text", text: renderWorkflowSummary(result) }],
         details: result,
       };
-    },
-
-    renderCall(args, theme) {
-      const taskCount = args.tasks?.length || 0;
-      const depCount = (args.tasks ?? []).reduce(
-        (sum, t) => sum + (t.dependsOn?.length ?? 0),
-        0
-      );
-      const waveLabel = depCount > 0 ? `DAG (${depCount} deps)` : "parallel";
-      return `${theme.fg("toolTitle", "execute_workflow")} ${theme.fg("accent", args.name)} ${theme.fg("muted", `${taskCount} tasks ${waveLabel}`)}`;
-    },
-
-    renderResult(result, _options, theme) {
-      const outcome = result.isError
-        ? theme.fg("error", "failed")
-        : theme.fg("success", "done");
-      return `${theme.fg("toolTitle", "execute_workflow")} ${outcome}`;
     },
   });
 
@@ -245,6 +256,7 @@ Usage:
       } catch (err) {
         return {
           content: [{ type: "text", text: `Failed to read PRD: ${err}` }],
+          details: {},
           isError: true,
         };
       }
@@ -267,9 +279,10 @@ Usage:
       let output: string;
       if (subagentFn) {
         try {
+          const resolvedModel = resolveSubagentModel((_ctx as any).model);
           const result = await subagentFn({
             agent: "custom",
-            config: { systemPrompt, systemPromptMode: "override" },
+            config: { systemPrompt, systemPromptMode: "override", ...(resolvedModel ? { model: resolvedModel } : {}) },
             task: userPrompt,
             context: "fork",
             async: false,
@@ -289,6 +302,7 @@ Usage:
       } catch (err) {
         return {
           content: [{ type: "text", text: `Failed to write spec: ${err}` }],
+          details: {},
           isError: true,
         };
       }
@@ -297,16 +311,6 @@ Usage:
         content: [{ type: "text", text: `Spec written to ${params.output}\nPreview:\n${output.slice(0, 800)}${output.length > 800 ? "\n..." : ""}` }],
         details: { outputPath: params.output, bytesWritten: output.length },
       };
-    },
-
-    renderCall(args, theme) {
-      return `${theme.fg("toolTitle", "plan_workflow")} ${theme.fg("accent", path.basename(args.input))} → ${theme.fg("muted", path.basename(args.output))}`;
-    },
-
-    renderResult(result, _opts, theme) {
-      return result.isError
-        ? `${theme.fg("toolTitle", "plan_workflow")} ${theme.fg("error", "failed")}`
-        : `${theme.fg("toolTitle", "plan_workflow")} ${theme.fg("success", "ok")}`;
     },
   });
 

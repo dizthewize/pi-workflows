@@ -1,6 +1,5 @@
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import { parseSpec, validateSpec, specToTasks } from "./spec-parser.js";
+import { describe, it, expect } from "vitest";
 
 describe("parseSpec", () => {
   it("parses a full spec with tasks", () => {
@@ -28,21 +27,21 @@ Depends on: TASK-02
 Acceptance: Middleware validates JWT from cookies
 `;
     const spec = parseSpec(md);
-    assert.strictEqual(spec.title, "Authentication Implementation");
-    assert.ok(spec.description?.includes("Refactor auth with JWT"));
-    assert.strictEqual(spec.tasks.length, 3);
+    expect(spec.title).toBe("Authentication Implementation");
+    expect(spec.description?.includes("Refactor auth with JWT")).toBe(true);
+    expect(spec.tasks.length).toBe(3);
 
     const t1 = spec.tasks[0];
-    assert.strictEqual(t1.id, "TASK-01");
-    assert.strictEqual(t1.title, "Create auth types");
-    assert.strictEqual(t1.priority, "P0");
-    assert.deepStrictEqual(t1.files, [{ path: "src/auth/types.ts", action: "create" }]);
-    assert.deepStrictEqual(t1.dependsOn, []);
-    assert.strictEqual(t1.acceptance, "Exports User, Session, Token interfaces");
+    expect(t1.id).toBe("TASK-01");
+    expect(t1.title).toBe("Create auth types");
+    expect(t1.priority).toBe("P0");
+    expect(t1.files).toStrictEqual([{ path: "src/auth/types.ts", action: "create" }]);
+    expect(t1.dependsOn).toStrictEqual([]);
+    expect(t1.acceptance).toBe("Exports User, Session, Token interfaces");
 
     const t2 = spec.tasks[1];
-    assert.strictEqual(t2.id, "TASK-02");
-    assert.deepStrictEqual(t2.dependsOn, ["TASK-01"]);
+    expect(t2.id).toBe("TASK-02");
+    expect(t2.dependsOn).toStrictEqual(["TASK-01"]);
   });
 
   it("parses multi-line acceptance", () => {
@@ -54,8 +53,8 @@ Acceptance: Must define:
 `;
     const spec = parseSpec(md);
     const t = spec.tasks[0];
-    assert.ok(t.acceptance.includes("Must define:"));
-    assert.ok(t.acceptance.includes("- GET /users endpoint"));
+    expect(t.acceptance.includes("Must define:")).toBe(true);
+    expect(t.acceptance.includes("- GET /users endpoint")).toBe(true);
   });
 
   it("parses modify and delete file annotations", () => {
@@ -67,7 +66,7 @@ Acceptance: Routes updated
 `;
     const spec = parseSpec(md);
     const t = spec.tasks[0];
-    assert.deepStrictEqual(t.files, [
+    expect(t.files).toStrictEqual([
       { path: "src/routes.ts", action: "modify" },
       { path: "src/old.ts", action: "delete" },
     ]);
@@ -85,7 +84,7 @@ Acceptance: Subtask done
 `;
     const spec = parseSpec(md);
     const sub = spec.tasks.find((t) => t.id === "TASK-06.1");
-    assert.strictEqual(sub?.parentTaskId, "TASK-06");
+    expect(sub?.parentTaskId).toBe("TASK-06");
   });
 });
 
@@ -104,7 +103,7 @@ Acceptance: Works
 `;
     const spec = parseSpec(md);
     const result = validateSpec(spec);
-    assert.strictEqual(result.valid, true);
+    expect(result.valid).toBe(true);
   });
 
   it("fails on circular dependency", () => {
@@ -116,8 +115,8 @@ Depends on: TASK-02
 Depends on: TASK-01
 `);
     const result = validateSpec(spec);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("Circular")));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("Circular"))).toBe(true);
   });
 
   it("fails on missing dependency", () => {
@@ -126,8 +125,8 @@ Depends on: TASK-01
 Depends on: TASK-99
 `);
     const result = validateSpec(spec);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("non-existent")));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("non-existent"))).toBe(true);
   });
 
   it("fails on no entry point", () => {
@@ -139,8 +138,8 @@ Depends on: TASK-02
 Depends on: TASK-01
 `);
     const result = validateSpec(spec);
-    assert.strictEqual(result.valid, false);
-    assert.ok(result.errors.some((e) => e.includes("entry point")));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes("entry point"))).toBe(true);
   });
 });
 
@@ -153,9 +152,9 @@ Depends on: none
 Acceptance: Exports interfaces
 `);
     const tasks = specToTasks(spec);
-    assert.strictEqual(tasks.length, 1);
-    assert.strictEqual(tasks[0].id, "TASK-01");
-    assert.deepStrictEqual(tasks[0].files, ["src/types.ts"]);
-    assert.strictEqual(tasks[0].gate, true);
+    expect(tasks.length).toBe(1);
+    expect(tasks[0].id).toBe("TASK-01");
+    expect(tasks[0].files).toStrictEqual(["src/types.ts"]);
+    expect(tasks[0].gate).toBe(true);
   });
 });

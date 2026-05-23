@@ -1,5 +1,3 @@
-import { describe, it, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -9,6 +7,7 @@ import {
   listAllReservations,
 } from "./reservations.js";
 import { Wave } from "../types.js";
+import { describe, it, expect } from "vitest";
 
 function mkTmpDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -35,7 +34,7 @@ describe("file reservations", () => {
       tmp
     );
     const reserved = await listAllReservations(tmp);
-    assert.strictEqual(reserved.has("src/a.ts"), true);
+    expect(reserved.has("src/a.ts")).toBe(true);
   });
 
   it("acquires multiple files in same wave", async () => {
@@ -50,8 +49,8 @@ describe("file reservations", () => {
       tmp
     );
     const reserved = await listAllReservations(tmp);
-    assert.strictEqual(reserved.has("src/a.ts"), true);
-    assert.strictEqual(reserved.has("src/b.ts"), true);
+    expect(reserved.has("src/a.ts")).toBe(true);
+    expect(reserved.has("src/b.ts")).toBe(true);
   });
 
   it("throws on file collision", async () => {
@@ -59,13 +58,10 @@ describe("file reservations", () => {
       { index: 0, tasks: [{ id: "t1", prompt: "a", files: ["src/a.ts"] }] },
       tmp
     );
-    await assert.rejects(
-      acquireWaveReservations(
+    await expect(acquireWaveReservations(
         { index: 1, tasks: [{ id: "t2", prompt: "b", files: ["src/a.ts"] }] },
         tmp
-      ),
-      /collision/
-    );
+      )).rejects.toThrow(/collision/);
   });
 
   it("releases reservations by task id", async () => {
@@ -75,7 +71,7 @@ describe("file reservations", () => {
     );
     await releaseReservations(tmp, ["t1"]);
     const reserved = await listAllReservations(tmp);
-    assert.strictEqual(reserved.has("src/a.ts"), false);
+    expect(reserved.has("src/a.ts")).toBe(false);
   });
 
   it("stores TTL and agent metadata", async () => {
@@ -90,8 +86,8 @@ describe("file reservations", () => {
     );
     const metaPath = path.join(tmp, "reservations", "t1.json");
     const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-    assert.strictEqual(meta.agent, "custom-role");
-    assert.ok(meta.ttl > 0);
-    assert.ok(meta.claimedAt > 0);
+    expect(meta.agent).toBe("custom-role");
+    expect(meta.ttl > 0).toBe(true);
+    expect(meta.claimedAt > 0).toBe(true);
   });
 });

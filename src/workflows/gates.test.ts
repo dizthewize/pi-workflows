@@ -1,43 +1,42 @@
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import { extractVerdict, challengeCycle } from "./gates.js";
+import { describe, it, expect } from "vitest";
 
 describe("extractVerdict", () => {
   it("parses APPROVE from JSON", () => {
     const v = extractVerdict('{"verdict": "APPROVE"}');
-    assert.strictEqual(v.verdict, "APPROVE");
+    expect(v.verdict).toBe("APPROVE");
   });
 
   it("parses NEEDS_CHANGES with feedback", () => {
     const v = extractVerdict(
       '{"verdict": "NEEDS_CHANGES", "feedback": "Missing bounds check"}'
     );
-    assert.strictEqual(v.verdict, "NEEDS_CHANGES");
-    assert.strictEqual(v.feedback, "Missing bounds check");
+    expect(v.verdict).toBe("NEEDS_CHANGES");
+    expect(v.feedback).toBe("Missing bounds check");
   });
 
   it("parses CHALLENGE with severity", () => {
     const v = extractVerdict(
       '{"verdict": "CHALLENGE", "message": "Why no tests?", "severity": "blocking"}'
     );
-    assert.strictEqual(v.verdict, "CHALLENGE");
-    assert.strictEqual(v.message, "Why no tests?");
-    assert.strictEqual(v.severity, "blocking");
+    expect(v.verdict).toBe("CHALLENGE");
+    expect(v.message).toBe("Why no tests?");
+    expect(v.severity).toBe("blocking");
   });
 
   it("defaults to APPROVE on unparseable output", () => {
     const v = extractVerdict("just some random text");
-    assert.strictEqual(v.verdict, "APPROVE");
+    expect(v.verdict).toBe("APPROVE");
   });
 
   it("heuristic: detects approve keyword", () => {
     const v = extractVerdict("Everything looks great. I approve this change.");
-    assert.strictEqual(v.verdict, "APPROVE");
+    expect(v.verdict).toBe("APPROVE");
   });
 
   it("heuristic: detects needs changes keyword", () => {
     const v = extractVerdict("This needs changes before merging.");
-    assert.strictEqual(v.verdict, "NEEDS_CHANGES");
+    expect(v.verdict).toBe("NEEDS_CHANGES");
   });
 });
 
@@ -72,7 +71,7 @@ describe("challengeCycle", () => {
       }),
     });
 
-    assert.strictEqual(result.status, "resolved");
+    expect(result.status).toBe("resolved");
   });
 
   it("exhausts maxCycles and returns exceeded", async () => {
@@ -108,10 +107,10 @@ describe("challengeCycle", () => {
       },
     });
 
-    assert.strictEqual(result.status, "max_cycles_exceeded");
+    expect(result.status).toBe("max_cycles_exceeded");
     // Each challenge cycle calls spawnFn twice: once for worker, once for reviewer
     // With maxCycles=2, total calls = 2 cycles × 2 = 4
-    assert.strictEqual(calls, 4);
+    expect(calls).toBe(4);
   });
 
   it("aborts early on signal", async () => {
@@ -137,6 +136,6 @@ describe("challengeCycle", () => {
       signal: controller.signal,
     });
 
-    assert.strictEqual(result.status, "needs_changes");
+    expect(result.status).toBe("needs_changes");
   });
 });

@@ -1,7 +1,6 @@
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import { runSingleAgent } from "./runner.js";
 import { AgentConfig, SingleResult } from "../types.js";
+import { describe, it, expect } from "vitest";
 
 describe("runSingleAgent", () => {
   it("uses injected spawnFn when provided", async () => {
@@ -25,8 +24,8 @@ describe("runSingleAgent", () => {
       spawnFn,
     });
 
-    assert.strictEqual(result.exitCode, 0);
-    assert.strictEqual(result.output, "via-mock");
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe("via-mock");
   });
 
   it("respects abort signal", async () => {
@@ -55,6 +54,6 @@ describe("runSingleAgent", () => {
       spawnFn: capturingSpawnFn,
     });
 
-    assert.strictEqual(receivedSignal, controller.signal);
+    expect(receivedSignal).toBe(controller.signal);
   });
 });

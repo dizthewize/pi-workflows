@@ -5,14 +5,13 @@
  * through workflow execution, cost tracking, and review gate enforcement.
  */
 
-import { describe, it } from "node:test";
-import assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { parseSpec, validateSpec, specToTasks } from "../workflows/spec-parser.js";
 import { executeWorkflow } from "../workflows/executor.js";
 import type { Task } from "../types.js";
+import { describe, it, expect } from "vitest";
 
 const SAMPLE_SPEC = `# Session Manager Refactor
 
@@ -64,22 +63,22 @@ describe("E2E: Full Pipeline", () => {
   it("PRD spec parses into correct tasks with dependencies", () => {
     const spec = parseSpec(SAMPLE_SPEC);
     const validation = validateSpec(spec);
-    assert.strictEqual(validation.valid, true, `Validation failed: ${validation.errors?.join(", ")}`);
-    assert.strictEqual(spec.tasks.length, 5, "Should have 5 tasks");
-    assert.strictEqual(spec.tasks[0].id, "TASK-01");
-    assert.deepStrictEqual(spec.tasks[0].dependsOn, []);
-    assert.deepStrictEqual(spec.tasks[2].dependsOn, ["TASK-01", "TASK-02"]);
-    assert.deepStrictEqual(spec.tasks[3].dependsOn, ["TASK-03"]);
+    expect(validation.valid).toBe(true, `Validation failed: ${validation.errors?.join(", ")}`);
+    expect(spec.tasks.length).toBe(5, "Should have 5 tasks");
+    expect(spec.tasks[0].id).toBe("TASK-01");
+    expect(spec.tasks[0].dependsOn).toStrictEqual([]);
+    expect(spec.tasks[2].dependsOn).toStrictEqual(["TASK-01", "TASK-02"]);
+    expect(spec.tasks[3].dependsOn).toStrictEqual(["TASK-03"]);
   });
 
   it("spec converts to Task[] with correct agent assignments", () => {
     const spec = parseSpec(SAMPLE_SPEC);
     const tasks = specToTasks(spec);
-    assert.strictEqual(tasks.length, 5);
-    assert.strictEqual(tasks[0].id, "TASK-01");
-    assert.strictEqual(tasks[2].dependsOn?.length, 2);
-    assert.ok(tasks[0].files?.length ?? 0 > 0);
-    assert.ok(tasks[0].files?.some((f) => f.endsWith("types.ts")));
+    expect(tasks.length).toBe(5);
+    expect(tasks[0].id).toBe("TASK-01");
+    expect(tasks[2].dependsOn?.length).toBe(2);
+    expect((tasks[0].files?.length ?? 0) > 0).toBe(true);
+    expect(tasks[0].files?.some((f) => f.endsWith("types.ts"))).toBe(true);
   });
 
   it("DAG produces correct wave ordering", async () => {
@@ -100,15 +99,15 @@ describe("E2E: Full Pipeline", () => {
       },
     });
 
-    assert.strictEqual(result.status, "complete", `Workflow failed: ${JSON.stringify(result)}`);
-    assert.strictEqual(result.workflow.taskCount, 5);
+    expect(result.status).toBe("complete", `Workflow failed: ${JSON.stringify(result)}`);
+    expect(result.workflow.taskCount).toBe(5);
     // Wave count: TASK-01 (wave 0), TASK-02 (wave 1), TASK-03 (wave 2), TASK-04 (wave 3), TASK-05 (wave 4)
-    assert.strictEqual(result.workflow.waveCount, 5, `Expected 5 waves, got ${result.workflow.waveCount}`);
-    assert.ok(result.cost.total >= 0, "Cost should be tracked");
-    assert.ok(result.durationMs >= 0, "Duration should be tracked");
+    expect(result.workflow.waveCount).toBe(5, `Expected 5 waves, got ${result.workflow.waveCount}`);
+    expect(result.cost.total >= 0).toBeTruthy();
+    expect(result.durationMs >= 0).toBeTruthy();
     // Verify log file exists
-    assert.ok(result.logPath, "Log path should be set");
-    assert.ok(fs.existsSync(result.logPath!), "Log file should exist");
+    expect(result.logPath).toBeTruthy();
+    expect(fs.existsSync(result.logPath!)).toBeTruthy();
   });
 
   it("review gates trigger on code tasks when enabled", async () => {
@@ -164,8 +163,8 @@ Acceptance: validate() returns boolean
     });
 
     // Workflow should still complete (gates don't block in this iteration)
-    assert.strictEqual(result.status, "complete");
-    assert.strictEqual(result.workflow.taskCount, 2);
+    expect(result.status).toBe("complete");
+    expect(result.workflow.taskCount).toBe(2);
   });
 
   it("fails gracefully on circular dependency", async () => {
@@ -184,7 +183,7 @@ Depends on: TASK-A
 
     const spec = parseSpec(circularSpec);
     const validation = validateSpec(spec);
-    assert.strictEqual(validation.valid, false, "Should detect cycle");
+    expect(validation.valid).toBe(false, "Should detect cycle");
   });
 
   it("handles plan file input as alternative to tasks array", async () => {
@@ -205,7 +204,7 @@ Depends on: TASK-A
       },
     });
 
-    assert.strictEqual(result.status, "complete");
-    assert.strictEqual(result.workflow.taskCount, 5);
+    expect(result.status).toBe("complete");
+    expect(result.workflow.taskCount).toBe(5);
   });
 });

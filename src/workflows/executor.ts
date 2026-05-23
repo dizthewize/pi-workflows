@@ -3,7 +3,7 @@ import * as fsSync from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { randomUUID } from "node:crypto";
-import { Task, WaveResult, WorkflowResult, WorkflowOptions, AgentTeam, SingleResult, TaskConfig, WorkflowStatus, ReviewGateResult, AgentRole } from "../types.js";
+import { Task, WaveResult, WorkflowResult, WorkflowOptions, AgentTeam, SingleResult, TaskConfig, WorkflowStatus, ReviewGateResult, AgentRole, AgentConfig } from "../types.js";
 
 const ROLE_STORE_PATH = path.join(os.homedir(), ".pi", "agent", "roles.json");
 const MESH_DIR = path.join(os.homedir(), ".pi", "agent", "mesh");
@@ -23,7 +23,7 @@ function resolveRoleConfig(roleId: string): AgentConfig | null {
   return {
     name: role.name,
     source: "pi-agent-roles",
-    model: role.model ?? null,
+    model: role.model === "default" ? null : (role.model ?? null),
     tools: role.tools ?? null,
     systemPrompt: role.systemPrompt,
     systemPromptMode: "override",
@@ -238,7 +238,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
         running.delete(idx);
         results[idx] = settled;
         costTracker.add(settled.usage?.cost ?? 0, `task-${wave.tasks[idx].id}`);
-        if (onUpdate) onUpdate(createWaveUpdate(wave, results));
+        if (onUpdate) onUpdate({ content: [{ type: "text" as const, text: "Wave update" }], details: createWaveUpdate(wave, results) });
       }
 
       const taskIdx = i;
@@ -329,7 +329,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
     for (let i = 0; i < wave.tasks.length; i++) {
       const t = wave.tasks[i];
       const r = results[i];
-      const shouldGate = (t.gate ?? (t.files?.length > 0)) && !options.autoApproveGates;
+      const shouldGate = (t.gate ?? ((t.files?.length ?? 0) > 0)) && !options.autoApproveGates;
       if (shouldGate && t.status === "complete") {
         gatedTasks.push({ task: t, result: r });
       }
@@ -490,17 +490,17 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
 
   // Point D: broadcast workflow completion and leave mesh
   if (meshAgentId) {
-    meshBroadcast(`Workflow "${name}" ${result.status} — ${waveCount} waves — cost $${result.cost.total.toFixed(2)}`);
+    meshBroadcast(`Workflow "${name}" ${result.status} — ${result.workflow.waveCount} waves — cost $${result.cost.total.toFixed(2)}`);
     meshLeave(meshAgentId);
   }
 
   return result;
 }
 
-function createWaveUpdate(wave: any, results: SingleResult[]) {
+function createWaveUpdate(wave: any, results: SingleResult[]): { mode: string; agentScope: string; projectAgentsDir: null; results: SingleResult[] } {
   return {
-    mode: "single" as const,
-    agentScope: "user" as const,
+    mode: "single",
+    agentScope: "user",
     projectAgentsDir: null,
     results,
   };

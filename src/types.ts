@@ -74,6 +74,7 @@ export interface SingleResult {
     metadataPath: string;
     jsonlPath: string;
   };
+  stopReason?: string;
 }
 
 export type WorkflowStatus =
