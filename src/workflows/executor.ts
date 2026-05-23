@@ -248,13 +248,16 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
     const taskIds = wave.tasks.map((t) => t.id);
 
     // Build initial snapshot for this wave
+    // Use task.id as the agent name so dashboard shows meaningful labels
+    // like "architecture", "seo_strategy", "copy_brief" instead of generic "worker"
     snapshot.agents = wave.tasks.map((t) => ({
-      name: t.agent ?? "worker",
+      name: t.id.replace(/_/g, "-"),
       status: "waiting",
       durationMs: 0,
       cost: 0,
       tokens: 0,
       turns: 0,
+      startedAt: 0,
     }));
     snapshot.totalCost = costTracker.summary().total;
     snapshot.updatedAt = Date.now();
@@ -317,6 +320,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
 
       // Mark agent as running in snapshot
       snapshot.agents[taskIdx].status = "running";
+      snapshot.agents[taskIdx].startedAt = Date.now();
       snapshot.updatedAt = Date.now();
       snapshot.events.push({
         ts: Date.now(),

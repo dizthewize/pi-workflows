@@ -167,7 +167,11 @@ export class WorkflowDashboard implements Component {
         : agent.status === "failed" ? th.fg("error", "✗")
         : th.fg("dim", "○");
       const file = agent.currentFile ? agent.currentFile.split("/").pop() ?? "" : "";
-      const dur = this.formatElapsed(agent.durationMs);
+      // For running agents, compute live duration from startedAt
+      const liveDur = agent.status === "running" && agent.startedAt
+        ? Date.now() - agent.startedAt
+        : agent.durationMs;
+      const dur = this.formatElapsed(liveDur);
       const cost = `$${agent.cost.toFixed(2)}`;
       const row = this.padCols(
         [agent.name, file, `${statusIcon} ${agent.status}`, dur, cost],

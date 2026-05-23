@@ -26,6 +26,7 @@ export interface AgentSnapshot {
   tokens: number;
   turns: number;
   progressPct?: number;
+  startedAt?: number; // When this agent started running (for live timer)
 }
 
 export interface WorkflowSnapshot {
