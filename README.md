@@ -138,6 +138,33 @@ When a code-producing task completes:
 3. `CHALLENGE` → worker receives feedback, fixes, resubmits (up to `maxChallengeCycles`, default 2)
 4. `APPROVE` → task complete, wave continues
 
+## Inline Dashboard
+
+`/workflows` renders a live status block for all active workflows.
+
+![pi-workflows dashboard](docs/dashboard.png)
+
+```
+Workflow: ws-sweetcrumb-build │ Wave 2/3 │ 2● 1✓ 0✗
+Cost: $1.24 / $15.00 limit                    Elapsed: 3m 12s
+──────────────────────────────────────────────────────────
+Agent          File              Status    Dur      Cost
+→ worker-3     menu.tsx          ● running 45s      $0.04
+  worker-4     about.tsx         ○ waiting --       --
+──────────────────────────────────────────────────────────
++45s  [worker-1] completed: task-t1
++12s  [worker-3] started: task-t3
+──────────────────────────────────────────────────────────
+Cost: worker-1 $0.08 | worker-2 $0.04 | worker-3 $0.04
+```
+
+| Command | Description |
+|---------|-------------|
+| `/workflows status` | Show all active workflows |
+| `/workflows clear` | Remove stale snapshots |
+
+Snapshots are written to `~/.pi/workflows/registry/<id>.json` every 250ms as agents progress.
+
 ## Inter-Extension Bridges
 
 `pi-workflows` exposes EventBus endpoints for other extensions:
