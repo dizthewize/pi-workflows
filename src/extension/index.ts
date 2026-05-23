@@ -315,11 +315,33 @@ Usage:
   });
 
   pi.registerCommand("workflows", {
-    description: "Open workflow dashboard: /workflows [status|pause|resume]",
-    handler: async (args, ctx) => {
-      // V1: just echo status. Full TUI dashboard is v1.1.
+    description: "Show workflow status: /workflows [status|clear]",
+    handler: async (args, _ctx) => {
       const action = args[0] ?? "status";
-      ctx.ui.notify(`Workflows: ${action} — full dashboard not yet implemented`, "info");
+
+      if (action === "clear") {
+        const { removeSnapshot, listSnapshots } = await import("../registry.js");
+        const snaps = listSnapshots();
+        for (const s of snaps) removeSnapshot(s.id);
+        pi.sendUserMessage(`Cleared ${snaps.length} workflow snapshots`);
+        return;
+      }
+
+      const { listSnapshots, formatInlineBlock } = await import("../registry.js");
+      const snaps = listSnapshots();
+      if (snaps.length === 0) {
+        pi.sendUserMessage("No active workflows. Run execute_workflow to start one.");
+        return;
+      }
+
+      const lines: string[] = [];
+      lines.push("## Active Workflows\n");
+      for (const snap of snaps.slice(0, 5)) {
+        lines.push("```");
+        lines.push(formatInlineBlock(snap));
+        lines.push("```\n");
+      }
+      pi.sendUserMessage(lines.join("\n"));
     },
   });
 }

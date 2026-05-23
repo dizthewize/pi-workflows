@@ -88,6 +88,7 @@ import { runSingleAgent, SpawnFunction } from "../agents/runner.js";
 import { resolveAgentConfig, loadAgentTeam } from "../agents/teams.js";
 import { renderWorkflowSummary, generateLogMarkdown } from "../utils.js";
 import { parseSpec, validateSpec, specToTasks } from "./spec-parser.js";
+import { writeSnapshot, formatInlineBlock, formatCompactStatus, formatAgentLine, type WorkflowSnapshot, type AgentSnapshot, type WorkflowEvent } from "../registry.js";
 
 export interface ExecutorOptions {
   name: string;
@@ -185,6 +186,22 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
   // Mesh join (Point D)
   const meshAgentId = meshJoinIfRequested(options, name);
 
+  // Inline status snapshot
+  const workflowId = `${name}-${Date.now()}`;
+  let snapshot: WorkflowSnapshot = {
+    id: workflowId,
+    name,
+    phase: "running",
+    waveIndex: 0,
+    waveCount: waves.length,
+    agents: [],
+    totalCost: 0,
+    costLimit: options.maxCost,
+    startedAt: startTime,
+    updatedAt: startTime,
+    events: [],
+  };
+
   // Execute waves
   for (const wave of waves) {
     if (signal?.aborted) {
@@ -202,6 +219,8 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
       result.status = "timeout";
       break;
     }
+
+    snapshot.waveIndex = wave.index;
 
     // File reservations
     if (options.reserveFiles !== false) {
@@ -227,6 +246,19 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
     const results: SingleResult[] = new Array(wave.tasks.length);
     const taskIds = wave.tasks.map((t) => t.id);
 
+    // Build initial snapshot for this wave
+    snapshot.agents = wave.tasks.map((t) => ({
+      name: t.agent ?? "worker",
+      status: "waiting",
+      durationMs: 0,
+      cost: 0,
+      tokens: 0,
+      turns: 0,
+    }));
+    snapshot.totalCost = costTracker.summary().total;
+    snapshot.updatedAt = Date.now();
+    writeSnapshot(snapshot);
+
     for (let i = 0; i < wave.tasks.length; i++) {
       if (running.size >= maxParallel) {
         // Wait for at least one to finish before spawning more
@@ -238,7 +270,33 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
         running.delete(idx);
         results[idx] = settled;
         costTracker.add(settled.usage?.cost ?? 0, `task-${wave.tasks[idx].id}`);
-        if (onUpdate) onUpdate({ content: [{ type: "text" as const, text: "Wave update" }], details: createWaveUpdate(wave, results) });
+
+        // Update snapshot with completed agent
+        const completedAgent = snapshot.agents[idx];
+        completedAgent.status = settled.exitCode === 0 ? "complete" : "failed";
+        completedAgent.durationMs = settled.durationMs ?? 0;
+        completedAgent.cost = settled.usage?.cost ?? 0;
+        completedAgent.tokens = (settled.usage?.input ?? 0) + (settled.usage?.output ?? 0) + (settled.usage?.cacheRead ?? 0) + (settled.usage?.cacheWrite ?? 0);
+        completedAgent.turns = settled.usage?.turns ?? 0;
+        snapshot.totalCost = costTracker.summary().total;
+        snapshot.updatedAt = Date.now();
+        snapshot.events.push({
+          ts: Date.now(),
+          agent: completedAgent.name,
+          type: completedAgent.status === "complete" ? "completed" : "failed",
+          detail: wave.tasks[idx].id,
+        });
+        writeSnapshot(snapshot);
+
+        // Send inline status update
+        if (onUpdate) {
+          const agentLine = formatAgentLine(completedAgent);
+          const block = formatInlineBlock(snapshot);
+          onUpdate({
+            content: [{ type: "text" as const, text: `${agentLine}\n\n${block}` }],
+            details: createWaveUpdate(wave, results),
+          });
+        }
       }
 
       const taskIdx = i;
@@ -256,15 +314,36 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
         agentCfg.model = defaultModel;
       }
 
+      // Mark agent as running in snapshot
+      snapshot.agents[taskIdx].status = "running";
+      snapshot.updatedAt = Date.now();
+      snapshot.events.push({
+        ts: Date.now(),
+        agent: snapshot.agents[taskIdx].name,
+        type: "started",
+        detail: task.id,
+      });
+      writeSnapshot(snapshot);
+
       const promise = runSingleAgent({
         cwd: runtime.cwd,
         agent: agentCfg,
         task: task.prompt,
         signal,
         onUpdate: (update) => {
-          // propagate but we also update our aggregate
-          // individual agent updates are left to the dashboard layer
-          results[taskIdx] = update.details?.results?.[0] ?? results[taskIdx];
+          // Update snapshot with live agent progress
+          const liveResult = update.details?.results?.[0];
+          if (liveResult) {
+            snapshot.agents[taskIdx].currentTool = liveResult.currentTool;
+            snapshot.agents[taskIdx].toolArgs = liveResult.currentToolArgs;
+            snapshot.agents[taskIdx].durationMs = liveResult.durationMs ?? 0;
+            snapshot.agents[taskIdx].cost = liveResult.usage?.cost ?? 0;
+            snapshot.agents[taskIdx].tokens = (liveResult.usage?.input ?? 0) + (liveResult.usage?.output ?? 0) + (liveResult.usage?.cacheRead ?? 0) + (liveResult.usage?.cacheWrite ?? 0);
+            snapshot.agents[taskIdx].turns = liveResult.usage?.turns ?? 0;
+            snapshot.updatedAt = Date.now();
+            writeSnapshot(snapshot);
+          }
+          results[taskIdx] = liveResult ?? results[taskIdx];
         },
         artifactsDir: path.join(workflowDir, "results"),
         artifactLabel: task.id,
@@ -285,6 +364,32 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
       for (const [idx, res] of settled) {
         results[idx] = res;
         costTracker.add(res.usage?.cost ?? 0, `task-${wave.tasks[idx].id}`);
+
+        // Update snapshot with completed agent
+        const completedAgent = snapshot.agents[idx];
+        completedAgent.status = res.exitCode === 0 ? "complete" : "failed";
+        completedAgent.durationMs = res.durationMs ?? 0;
+        completedAgent.cost = res.usage?.cost ?? 0;
+        completedAgent.tokens = (res.usage?.input ?? 0) + (res.usage?.output ?? 0) + (res.usage?.cacheRead ?? 0) + (res.usage?.cacheWrite ?? 0);
+        completedAgent.turns = res.usage?.turns ?? 0;
+        snapshot.totalCost = costTracker.summary().total;
+        snapshot.updatedAt = Date.now();
+        snapshot.events.push({
+          ts: Date.now(),
+          agent: completedAgent.name,
+          type: completedAgent.status === "complete" ? "completed" : "failed",
+          detail: wave.tasks[idx].id,
+        });
+        writeSnapshot(snapshot);
+
+        if (onUpdate) {
+          const agentLine = formatAgentLine(completedAgent);
+          const block = formatInlineBlock(snapshot);
+          onUpdate({
+            content: [{ type: "text" as const, text: `${agentLine}\n\n${block}` }],
+            details: createWaveUpdate(wave, results),
+          });
+        }
       }
     }
 
@@ -420,8 +525,9 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
     }), "utf-8");
 
     if (onUpdate) {
+      const summary = `Wave ${wave.index + 1} / ${waves.length} — ${wave.tasks.filter((t) => t.status === "complete").length}✓ ${wave.tasks.filter((t) => t.status === "failed").length}✗ — cost $${costTracker.summary().total.toFixed(2)}`;
       onUpdate({
-        content: [{ type: "text", text: `Wave ${wave.index + 1} / ${waves.length} — cost ${costTracker.summary().total.toFixed(2)}` }],
+        content: [{ type: "text", text: summary }],
         details: createWaveUpdate(wave, results),
       });
     }
