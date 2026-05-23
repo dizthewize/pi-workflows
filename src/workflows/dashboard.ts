@@ -135,15 +135,14 @@ export class WorkflowDashboard implements Component {
     const costStr = `$${snap.totalCost.toFixed(2)}`;
     const limitStr = snap.costLimit ? ` / $${snap.costLimit.toFixed(2)} limit` : "";
 
-    const leftStats = [
-      running > 0 ? th.fg("warning", `● running: ${running}`) : "",
-      complete > 0 ? th.fg("success", `✓ complete: ${complete}`) : "",
-      failed > 0 ? th.fg("error", `✗ failed: ${failed}`) : "",
-      waiting > 0 ? th.fg("dim", `○ waiting: ${waiting}`) : "",
-    ].filter(Boolean).join("  ");
+    const runningStr = running > 0 ? th.fg("warning", `● running: ${running}`) : th.fg("dim", "● running: 0");
+    const completeStr = complete > 0 ? th.fg("success", `✓ complete: ${complete}`) : th.fg("dim", "✓ complete: 0");
+    const failedStr = failed > 0 ? th.fg("error", `✗ failed: ${failed}`) : th.fg("dim", "✗ failed: 0");
+    const waitingStr = waiting > 0 ? th.fg("dim", `○ waiting: ${waiting}`) : th.fg("dim", "○ waiting: 0");
+    const leftStats = `${runningStr}  ${completeStr}  ${failedStr}  ${waitingStr}`;
 
     const rightStats = `${th.fg("dim", "⏱")} ${elapsed}  ${th.fg("dim", "Cost:")} ${costStr}${limitStr}`;
-    lines.push(this.boxLine(this.padBetween(leftStats || th.fg("dim", "No agents"), rightStats, innerWidth - 2), innerWidth));
+    lines.push(this.boxLine(this.padBetween(leftStats, rightStats, innerWidth - 2), innerWidth));
     lines.push(this.boxLine(th.fg("borderMuted", "─".repeat(innerWidth - 2)), innerWidth));
 
     // Agent table header

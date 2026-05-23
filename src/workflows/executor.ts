@@ -288,7 +288,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
           ts: Date.now(),
           agent: completedAgent.name,
           type: completedAgent.status === "complete" ? "completed" : "failed",
-          detail: wave.tasks[idx].id,
+          detail: completedAgent.status === "complete" ? "done" : "failed",
         });
         writeSnapshot(snapshot);
 
@@ -326,7 +326,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
         ts: Date.now(),
         agent: snapshot.agents[taskIdx].name,
         type: "started",
-        detail: task.id,
+        detail: "started",
       });
       writeSnapshot(snapshot);
 
@@ -383,7 +383,7 @@ export async function executeWorkflow(opts: ExecutorOptions): Promise<WorkflowRe
           ts: Date.now(),
           agent: completedAgent.name,
           type: completedAgent.status === "complete" ? "completed" : "failed",
-          detail: wave.tasks[idx].id,
+          detail: completedAgent.status === "complete" ? "done" : "failed",
         });
         writeSnapshot(snapshot);
 

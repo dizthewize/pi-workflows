@@ -104,13 +104,13 @@ export class WorkflowWidget implements Component {
     const cost = `$${snap.totalCost.toFixed(2)}`;
     const limit = snap.costLimit ? ` / $${snap.costLimit.toFixed(2)}` : "";
 
-    const leftParts: string[] = [];
-    if (running > 0) leftParts.push(th.fg("warning", `●${running}`));
-    if (complete > 0) leftParts.push(th.fg("success", `✓${complete}`));
-    if (failed > 0) leftParts.push(th.fg("error", `✗${failed}`));
-    if (waiting > 0) leftParts.push(th.fg("dim", `○${waiting}`));
+    // Always show all counts for consistent layout (like pi-agent-teams)
+    const runningStr = running > 0 ? th.fg("warning", `●${running}`) : th.fg("dim", `●0`);
+    const completeStr = complete > 0 ? th.fg("success", `✓${complete}`) : th.fg("dim", `✓0`);
+    const failedStr = failed > 0 ? th.fg("error", `✗${failed}`) : th.fg("dim", `✗0`);
+    const waitingStr = waiting > 0 ? th.fg("dim", `○${waiting}`) : th.fg("dim", `○0`);
 
-    const left = leftParts.join(" ") || th.fg("dim", "Starting...");
+    const left = `${runningStr}  ${completeStr}  ${failedStr}  ${waitingStr}`;
     const right = `${th.fg("dim", "⏱")} ${elapsed}  ${th.fg("dim", "$")}${cost}${limit}`;
     lines.push(this.boxLine(this.padBetween(left, right, innerWidth - 2), innerWidth));
 
