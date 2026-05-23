@@ -138,32 +138,39 @@ When a code-producing task completes:
 3. `CHALLENGE` → worker receives feedback, fixes, resubmits (up to `maxChallengeCycles`, default 2)
 4. `APPROVE` → task complete, wave continues
 
-## Inline Dashboard
+## Live TUI Widget
 
-`/workflows` renders a live status block for all active workflows.
-
-![pi-workflows dashboard](docs/dashboard.png)
+The widget **auto-appears** during `execute_workflow` and shows live progress:
 
 ```
-Workflow: ws-sweetcrumb-build │ Wave 2/3 │ 2● 1✓ 0✗
-Cost: $1.24 / $15.00 limit                    Elapsed: 3m 12s
-──────────────────────────────────────────────────────────
-Agent          File              Status    Dur      Cost
-→ worker-3     menu.tsx          ● running 45s      $0.04
-  worker-4     about.tsx         ○ waiting --       --
-──────────────────────────────────────────────────────────
-+45s  [worker-1] completed: task-t1
-+12s  [worker-3] started: task-t3
-──────────────────────────────────────────────────────────
-Cost: worker-1 $0.08 | worker-2 $0.04 | worker-3 $0.04
+┌─ ws-portland-roasters-plan | RUNNING ───────────────────────────┐
+│ ●3  ✓0  ✗0  ○0        ⏱ 2m31s  $0.17 / $15.00 limit           │
+│ ────────────────────────────────────────────────────────────────│
+│ ● architecture  running  → write  1m48s  $0.06  67.3k           │
+│ ● seo-strategy  running  → read   1m15s  $0.06  45.2k           │
+│ ● copy-brief    running  → write  2m31s  $0.05  38.1k           │
+│ ────────────────────────────────────────────────────────────────│
+│ +2m31s ▶ copy-brief started                                      │
+│ +1m48s ▶ architecture started                                    │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+- **Auto-shows** when `execute_workflow` starts
+- **Live timers** count up every second for running agents
+- **Named agents** use task IDs (`architecture`, `seo-strategy`) not generic "worker"
+- **Auto-dismisses** when workflow completes
+
+## Full Dashboard
+
+`/workflows dashboard` opens a scrollable overlay:
 
 | Command | Description |
 |---------|-------------|
-| `/workflows status` | Show all active workflows |
+| `/workflows status` | Show all active workflows (markdown) |
+| `/workflows dashboard` | Full-screen TUI overlay |
 | `/workflows clear` | Remove stale snapshots |
 
-Snapshots are written to `~/.pi/workflows/registry/<id>.json` every 250ms as agents progress.
+Snapshots written to `~/.pi/workflows/registry/<id>.json` every 250ms.
 
 ## Inter-Extension Bridges
 
