@@ -11,8 +11,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { executeWorkflow } from "../workflows/executor.js";
+import { WorkflowWidget } from "../workflows/widget.js";
 import { renderWorkflowSummary } from "../utils.js";
 import type { ExecuteWorkflowParams } from "../types.js";
+
+// Track active TUI widgets for cleanup
+const activeWidgets = new Map<string, WorkflowWidget>();
 
 function resolveSubagentModel(currentModel?: { id: string; provider?: string } | string): string | undefined {
   const modelId = typeof currentModel === "string" ? currentModel : currentModel?.id;
@@ -193,25 +197,45 @@ Usage:
     async execute(_toolCallId, rawParams, signal, onUpdate, ctx) {
       const params = rawParams as ExecuteWorkflowType;
 
-      const result = await executeWorkflow({
-        name: params.name,
-        tasks: params.tasks,
-        options: params.options,
-        runtime: { cwd: ctx.cwd },
-        defaultModel: resolveSubagentModel((ctx as any).model),
-        onUpdate: (update) => {
-          if (onUpdate) {
-            onUpdate({
-              content: update.content as Array<{ type: "text"; text: string }>,
-              details: update.details?.results.reduce(
-                (acc, r) => {
-                  acc[r.agent] = {
-                    output: r.output,
-                    exitCode: r.exitCode,
-                    cost: r.usage?.cost,
-                    durationMs: r.durationMs,
-                  };
-                  return acc;
+      // Generate deterministic snapshot ID for widget tracking
+      const snapshotId = `wf-${params.name.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 30)}`;
+
+      // Register TUI widget if available
+      if (ctx.hasUI) {
+        // Dispose previous widget for this snapshot if exists
+        const existing = activeWidgets.get(snapshotId);
+        if (existing) {
+          existing.dispose();
+          activeWidgets.delete(snapshotId);
+        }
+
+        ctx.ui.setWidget(`pi-workflows-${snapshotId}`, (tui, theme) => {
+          const widget = new WorkflowWidget(snapshotId, tui, theme);
+          activeWidgets.set(snapshotId, widget);
+          return widget;
+        });
+      }
+
+      try {
+        const result = await executeWorkflow({
+          name: params.name,
+          tasks: params.tasks,
+          options: params.options,
+          runtime: { cwd: ctx.cwd },
+          defaultModel: resolveSubagentModel((ctx as any).model),
+          onUpdate: (update) => {
+            if (onUpdate) {
+              onUpdate({
+                content: update.content as Array<{ type: "text"; text: string }>,
+                details: update.details?.results.reduce(
+                  (acc, r) => {
+                    acc[r.agent] = {
+                      output: r.output,
+                      exitCode: r.exitCode,
+                      cost: r.usage?.cost,
+                      durationMs: r.durationMs,
+                    };
+                    return acc;
                 },
                 {} as Record<string, unknown>
               ),
@@ -221,10 +245,21 @@ Usage:
         signal,
       });
 
-      return {
-        content: [{ type: "text", text: renderWorkflowSummary(result) }],
-        details: result,
-      };
+        return {
+          content: [{ type: "text", text: renderWorkflowSummary(result) }],
+          details: result,
+        };
+      } finally {
+        // Clean up widget after workflow completes (success or failure)
+        const widget = activeWidgets.get(snapshotId);
+        if (widget) {
+          widget.dispose();
+          activeWidgets.delete(snapshotId);
+        }
+        if (ctx.hasUI) {
+          ctx.ui.setWidget(`pi-workflows-${snapshotId}`, undefined);
+        }
+      }
     },
   });
 
@@ -315,8 +350,8 @@ Usage:
   });
 
   pi.registerCommand("workflows", {
-    description: "Show workflow status: /workflows [status|clear]",
-    handler: async (args, _ctx) => {
+    description: "Show workflow status: /workflows [status|clear|dashboard]",
+    handler: async (args, ctx) => {
       const action = args[0] ?? "status";
 
       if (action === "clear") {
@@ -331,6 +366,16 @@ Usage:
       const snaps = listSnapshots();
       if (snaps.length === 0) {
         pi.sendUserMessage("No active workflows. Run execute_workflow to start one.");
+        return;
+      }
+
+      // If TUI available and user wants dashboard, show full overlay
+      if (ctx.hasUI && action === "dashboard") {
+        const snap = snaps[0]; // Show most recent
+        const { WorkflowDashboard } = await import("../workflows/dashboard.js");
+        await ctx.ui.custom((tui, theme, keybindings, done) => {
+          return new WorkflowDashboard(snap.id, tui, theme, keybindings, () => done(undefined));
+        });
         return;
       }
 
